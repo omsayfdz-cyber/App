@@ -1,10 +1,10 @@
-import pandas as pd
 from datetime import datetime
+import pandas as pd
 import streamlit as st
 
 # إعدادات الصفحة وتصميم الواجهة
-st.set_page_title(
-    "نظام إدارة المحلات - Mahaal Clone", page_icon="🛍️", layout="wide"
+st.set_page_config(
+    page_title="نظام إدارة المحلات - Mahaal Clone", page_icon="🛍️", layout="wide"
 )
 
 # تخصيص التصميم ودعم اللغة العربية (RTL)
@@ -23,13 +23,6 @@ st.markdown(
         color: #1e3932;
         margin-bottom: 20px;
     }
-    .metric-card {
-        background-color: white;
-        padding: 15px;
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        text-align: center;
-    }
     </style>
 """,
     unsafe_allow_html=True,
@@ -39,7 +32,7 @@ st.markdown(
 if "inventory" not in st.session_state:
   st.session_state.inventory = pd.DataFrame(
       {
-          "معرف المنتح": ["P001", "P002", "P003"],
+          "معرف المنتج": ["P001", "P002", "P003"],
           "اسم المنتج": ["زيت زيتون 1ل", "سكر 1كغ", "حليب نصف دسم"],
           "سعر الشراء": [650.0, 120.0, 95.0],
           "سعر البيع": [750.0, 140.0, 110.0],
@@ -85,7 +78,6 @@ if menu == "📊 لوحة التحكم":
       '<p class="main-header">📊 لوحة التحكم والأداء</p>', unsafe_allow_html=True
   )
 
-  # حساب المؤشرات
   total_products = len(st.session_state.inventory)
   total_stock_value = (
       st.session_state.inventory["سعر الشراء"]
@@ -102,11 +94,7 @@ if menu == "📊 لوحة التحكم":
 
   col1, col2, col3 = st.columns(3)
   with col1:
-    st.metric(
-        label="إجمالي مبيعات اليوم",
-        value=f"{today_revenue:,.2f} د.ج",
-        delta="مباشر",
-    )
+    st.metric(label="إجمالي مبيعات اليوم", value=f"{today_revenue:,.2f} د.ج")
   with col2:
     st.metric(label="قيمة المخزون الحالي", value=f"{total_stock_value:,.2f} د.ج")
   with col3:
@@ -121,9 +109,9 @@ if menu == "📊 لوحة التحكم":
   if not low_stock.empty:
     st.dataframe(low_stock, use_container_width=True)
   else:
-    st.success("جميع المنتجات متوفرة بكميات كافية ولا توجد تنبيهات حالياً.")
+    st.success("جميع المنتجات متوفرة بكميات كافية.")
 
-# 2. نقطة البيع (POS & Sales)
+# 2. نقطة البيع (POS)
 elif menu == "🛒 نقطة البيع (POS)":
   st.markdown(
       '<p class="main-header">🛒 تسجيل مبيعات جديدة</p>', unsafe_allow_html=True
@@ -153,12 +141,10 @@ elif menu == "🛒 نقطة البيع (POS)":
     st.markdown(f"### الإجمالي المطلوب: **{total_price:,.2f} د.ج**")
 
     if st.button("✅ إتمام البيع وخفض المخزون", type="primary"):
-      # خصم الكمية من المخزون
       st.session_state.inventory.loc[
           st.session_state.inventory["اسم المنتج"] == selected_product, "الكمية"
       ] -= quantity_sold
 
-      # تسجيل عملية البيع
       new_sale = pd.DataFrame(
           {
               "رقم الفاتورة": [f"INV-{len(st.session_state.sales)+1:04d}"],
@@ -178,8 +164,6 @@ elif menu == "🛒 نقطة البيع (POS)":
     st.subheader("📋 سجل مبيعات اليوم")
     if not st.session_state.sales.empty:
       st.dataframe(st.session_state.sales, use_container_width=True)
-    else:
-      st.info("لا توجد مبيعات مسجلة حتى الآن.")
 
 # 3. إدارة المخزون
 elif menu == "📦 إدارة المخزون":
@@ -198,7 +182,7 @@ elif menu == "📦 إدارة المخزون":
       col1, col2 = st.columns(2)
       with col1:
         p_id = st.text_input(
-            "معرف المنتج (Barcode/ID)", f"P00{len(st.session_state.inventory)+1}"
+            "معرف المنتج", f"P00{len(st.session_state.inventory)+1}"
         )
         p_name = st.text_input("اسم المنتج")
         p_buy = st.number_input("سعر الشراء (د.ج)", min_value=0.0, value=100.0)
@@ -208,24 +192,21 @@ elif menu == "📦 إدارة المخزون":
         p_min = st.number_input("حد التنبيه الأدنى", min_value=0, value=5)
 
       submitted = st.form_submit_button("حفظ وإضافة المنتج")
-      if submitted:
-        if p_name:
-          new_item = pd.DataFrame(
-              {
-                  "معرف المنتح": [p_id],
-                  "اسم المنتج": [p_name],
-                  "سعر الشراء": [p_buy],
-                  "سعر البيع": [p_sell],
-                  "الكمية": [p_qty],
-                  "الحد الأدنى": [p_min],
-              }
-          )
-          st.session_state.inventory = pd.concat(
-              [st.session_state.inventory, new_item], ignore_index=True
-          )
-          st.success(f"تمت إضافة المنتج '{p_name}' بنجاح!")
-        else:
-          st.error("الرجاء إدخال اسم المنتج على الأقل.")
+      if submitted and p_name:
+        new_item = pd.DataFrame(
+            {
+                "معرف المنتج": [p_id],
+                "اسم المنتج": [p_name],
+                "سعر الشراء": [p_buy],
+                "سعر البيع": [p_sell],
+                "الكمية": [p_qty],
+                "الحد الأدنى": [p_min],
+            }
+        )
+        st.session_state.inventory = pd.concat(
+            [st.session_state.inventory, new_item], ignore_index=True
+        )
+        st.success(f"تمت إضافة المنتج '{p_name}' بنجاح!")
 
 # 4. ديون العملاء
 elif menu == "👥 ديون العملاء":
@@ -257,12 +238,8 @@ elif menu == "👥 ديون العملاء":
       )
       st.success("تم تسجيل حساب العميل بنجاح!")
 
-  st.markdown("---")
-  st.subheader("قائمة الديون والحسابات المفتوحة")
   if not st.session_state.debts.empty:
     st.dataframe(st.session_state.debts, use_container_width=True)
-  else:
-    st.info("لا توجد ديون مسجلة.")
 
 # 5. التقارير
 elif menu == "📈 التقارير":
@@ -273,7 +250,6 @@ elif menu == "📈 التقارير":
   if not st.session_state.sales.empty:
     total_sales_sum = st.session_state.sales["الإجمالي"].sum()
     st.metric(label="إجمالي المبيعات التراكمية", value=f"{total_sales_sum:,.2f} د.ج")
-    st.subheader("تفاصيل كافة العمليات المسجلة")
     st.dataframe(st.session_state.sales, use_container_width=True)
   else:
     st.info("لا توجد بيانات كافية لعرض التقارير حالياً.")
